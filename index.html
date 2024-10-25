@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo do Sapinho</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #9acd32;
+        }
+
+        canvas {
+            display: block;
+            background: #9acd32;
+        }
+
+        #pontuacao, #cronometro {
+            position: absolute;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+
+        #pontuacao {
+            top: 10px;
+            left: 10px;
+        }
+
+        #cronometro {
+            top: 10px;
+            right: 10px;
+        }
+
+        #botaoInicio, #botaoReiniciar {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            font-size: 24px;
+            font-family: Arial, sans-serif;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #botaoInicio:hover, #botaoReiniciar:hover {
+            background-color: #45a049;
+        }
+
+        #botaoReiniciar {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="pontuacao" style="display: none;">Pontuação: 0</div>
+    <div id="cronometro" style="display: none;">Tempo: 45</div>
+    <canvas id="jogo" style="display: none;"></canvas>
+    <button id="botaoInicio">Iniciar Jogo</button>
+    <button id="botaoReiniciar">Jogar Novamente</button>
+
+    <audio id="musicaFundo" preload="auto" loop>
+        <source src="./musica1.mp3" type="audio/mp3">
+    </audio>
+
+    <audio id="somMosca" preload="auto">
+        <source src="./mosca.mp3" type="audio/mp3">
+    </audio>
+
+    <audio id="somErro" preload="auto">
+        <source src="./erro.mp3" type="audio/mp3">
+    </audio>
+
+    <script>
+        const canvas = document.getElementById('jogo');
+        const ctx = canvas.getContext('2d');
+        const musicaFundo = document.getElementById('musicaFundo');
+        const somMosca = document.getElementById('somMosca');
+        const somErro = document.getElementById('somErro');
+        const botaoInicio = document.getElementById('botaoInicio');
+        const botaoReiniciar = document.getElementById('botaoReiniciar');
+        const pontuacaoDiv = document.getElementById('pontuacao');
+        const cronometroDiv = document.getElementById('cronometro');
+
+        let pontuacao = 0;
+        let tempoRestante = 45;
+        let jogoEmAndamento = false;
+        let intervaloCronometro;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const sapinho = {
+            x: canvas.width / 2 - 100,
+            y: canvas.height - 200,
+            width: 200,
+            height: 200,
+            imagem: new Image()
+        };
+        sapinho.imagem.src = './sapinho.png';
+
+        const mosca = {
+            x: Math.random() * (canvas.width - 60),
+            y: Math.random() * (canvas.height / 2 - 60),
+            width: 60,
+            height: 60,
+            velocidadeX: 3,
+            velocidadeY: 3,
+            imagem: new Image()
+        };
+        mosca.imagem.src = './mosquinha.png';
+
+        botaoInicio.addEventListener('click', iniciarJogo);
+        botaoReiniciar.addEventListener('click', reiniciarJogo);
+
+        function iniciarJogo() {
+            resetarEstado();
+            musicaFundo.play().catch(error => console.error('Erro ao tocar a música:', error));
+            loop();
+            iniciarCronometro();
+        }
+
+        function reiniciarJogo() {
+            botaoReiniciar.style.display = 'none';
+            iniciarJogo();
+        }
+
+        function resetarEstado() {
+            botaoInicio.style.display = 'none';
+            canvas.style.display = 'block';
+            pontuacaoDiv.style.display = 'block';
+            cronometroDiv.style.display = 'block';
+
+            pontuacao = 0;
+            tempoRestante = 45;
+            jogoEmAndamento = true;
+
+            pontuacaoDiv.textContent = 'Pontuação: 0';
+            cronometroDiv.textContent = 'Tempo: 45';
+
+            clearInterval(intervaloCronometro); // Limpa qualquer intervalo anterior
+        }
+
+        function desenhar() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(sapinho.imagem, sapinho.x, sapinho.y, sapinho.width, sapinho.height);
+            ctx.drawImage(mosca.imagem, mosca.x, mosca.y, mosca.width, mosca.height);
+        }
+
+        function detectarClique(evento) {
+            if (!jogoEmAndamento) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = evento.clientX - rect.left;
+            const mouseY = evento.clientY - rect.top;
+
+            if (
+                mouseX >= mosca.x &&
+                mouseX <= mosca.x + mosca.width &&
+                mouseY >= mosca.y &&
+                mouseY <= mosca.y + mosca.height
+            ) {
+                pontuacao++;
+                pontuacaoDiv.textContent = 'Pontuação: ' + pontuacao;
+                somMosca.play();
+
+                mosca.x = Math.random() * (canvas.width - mosca.width);
+                mosca.y = Math.random() * (canvas.height / 2 - mosca.height);
+            } else {
+                somErro.play();
+            }
+        }
+
+        function moverMosca() {
+            mosca.x += mosca.velocidadeX;
+            mosca.y += mosca.velocidadeY;
+
+            if (mosca.x <= 0 || mosca.x + mosca.width >= canvas.width) {
+                mosca.velocidadeX *= -1;
+            }
+
+            if (mosca.y <= 0 || mosca.y + mosca.height >= canvas.height / 2) {
+                mosca.velocidadeY *= -1;
+            }
+        }
+
+        function iniciarCronometro() {
+            intervaloCronometro = setInterval(() => {
+                if (tempoRestante > 0) {
+                    tempoRestante--;
+                    cronometroDiv.textContent = 'Tempo: ' + tempoRestante;
+                } else {
+                    finalizarJogo();
+                }
+            }, 1000);
+        }
+
+        function finalizarJogo() {
+            jogoEmAndamento = false;
+            cronometroDiv.textContent = 'Fim de Jogo!';
+            musicaFundo.pause();
+            botaoReiniciar.style.display = 'block';
+            clearInterval(intervaloCronometro);
+        }
+
+        canvas.addEventListener('mousedown', detectarClique);
+
+        function loop() {
+            if (jogoEmAndamento) {
+                desenhar();
+                moverMosca();
+                requestAnimationFrame(loop);
+            }
+        }
+    </script>
+</body>
+</html>
